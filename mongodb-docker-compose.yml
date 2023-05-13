@@ -8,8 +8,7 @@ services:
       - 27017:27017
     volumes:
       - mongodb_data:/data/db
-    networks:
-      - host
+    network_mode: host
 
 volumes:
   mongodb_data:

@@ -139,7 +139,7 @@ async def upload_database(code: str, file: UploadFile) -> dict:
                     display_name=row["Name"],
                     count=row["Guest count"],
                     wedding_party=row["Wedding party"],
-                    code=row["Code"],
+                    code=row["Code"].replace(" ", ""),
                 )
                 await engine.save(grp)
         except KeyError:
