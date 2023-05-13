@@ -1,12 +1,8 @@
 from typing import Optional
 
+from fastapi import UploadFile
 from odmantic import Field, Model
 from pydantic import BaseModel
-
-
-class RSVP(BaseModel):
-    code: str
-    status: int
 
 
 class WeddingGuestGroup(Model):
@@ -23,3 +19,28 @@ class WeddingGuestGroup(Model):
     admin: bool = Field(default=False)
     code: str = Field(unique=True)
     parking_required: bool = Field(default=False)
+
+
+class Music(BaseModel):
+    display_name: str
+    song_choice: str
+
+
+class RSVP(BaseModel):
+    code: str
+    status: int
+
+
+class SongChoice(BaseModel):
+    code: str
+    song_choice: str
+
+
+class DietaryRequirements(BaseModel):
+    code: str
+    dietary_requirements: str
+
+
+class Photo(BaseModel):
+    code: str
+    photos: list[UploadFile]
