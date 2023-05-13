@@ -1,12 +1,14 @@
+import io
 import logging
 from pathlib import Path
 
 import boto3
+import pandas as pd
 from botocore.exceptions import NoCredentialsError
-from data import (RSVP, DietaryRequirements, Music, Photo, SongChoice,
-                  WeddingGuestGroup)
+from data import RSVP, DietaryRequirements, Music, Photo, SongChoice, WeddingGuestGroup
 from decouple import config
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile
+from fastapi.responses import StreamingResponse
 from motor.motor_asyncio import AsyncIOMotorClient
 from odmantic import AIOEngine
 
@@ -28,6 +30,11 @@ async def fetch_guest_group(code: str) -> WeddingGuestGroup:
     if not guest_group:
         raise HTTPException(status_code=404, detail="Invalid user code, please login")
     return guest_group
+
+
+async def is_admin(code: str) -> bool:
+    guest_group = await fetch_guest_group(code)
+    return guest_group.admin
 
 
 @app.get("/health")
@@ -93,3 +100,54 @@ async def photo(photo_data: Photo) -> dict:
         logger.error("AWS credentials not available")
         raise HTTPException(status_code=500, detail="AWS credentials not available")
     return {"message": "Photos uploaded!"}
+
+
+@app.get("/{code}/download_database")
+async def download_database(code: str) -> StreamingResponse:
+    admin_grp = await fetch_guest_group(code)
+    if not admin_grp.admin:
+        raise HTTPException(
+            status_code=403,
+            detail="You are not authorised to download the database",
+        )
+    data = pd.concat(
+        [record.as_pandas() for record in await engine.find(WeddingGuestGroup)],
+        ignore_index=True,
+    )
+    stream = io.StringIO()
+    data.to_csv(stream, index=False)
+    response = StreamingResponse(iter([stream.getvalue()]), media_type="text/csv")
+    response.headers["Content-Disposition"] = "attachment; filename=database.csv"
+    return response
+
+
+@app.post("/upload_database")
+async def upload_database(code: str, file: UploadFile) -> dict:
+    admin_grp = await fetch_guest_group(code)
+    if not admin_grp.admin:
+        raise HTTPException(
+            status_code=403,
+            detail="You are not authorised to upload the database",
+        )
+    try:
+        for grp in await engine.find(WeddingGuestGroup):
+            await engine.delete(grp)
+        df = pd.read_csv(file.file)
+        try:
+            for index, row in df.iterrows():
+                grp = WeddingGuestGroup(
+                    display_name=row["Name"],
+                    count=row["Guest count"],
+                    wedding_party=row["Wedding party"],
+                    code=row["Code"],
+                )
+                await engine.save(grp)
+        except KeyError:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid database format",
+            )
+    except NoCredentialsError:
+        logger.error("AWS credentials not available")
+        raise HTTPException(status_code=500, detail="AWS credentials not available")
+    return {"message": "Database uploaded!"}

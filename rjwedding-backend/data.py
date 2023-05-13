@@ -1,5 +1,6 @@
 from typing import Optional
 
+import pandas as pd
 from fastapi import UploadFile
 from odmantic import Field, Model
 from pydantic import BaseModel
@@ -19,6 +20,9 @@ class WeddingGuestGroup(Model):
     admin: bool = Field(default=False)
     code: str = Field(unique=True)
     parking_required: bool = Field(default=False)
+
+    def as_pandas(self) -> pd.DataFrame:
+        return pd.DataFrame(self.dict(), index=[0])
 
 
 class Music(BaseModel):
