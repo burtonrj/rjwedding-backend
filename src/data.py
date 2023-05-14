@@ -25,26 +25,30 @@ class WeddingGuestGroup(Model):
         return pd.DataFrame(self.dict(), index=[0])
 
 
-class Music(BaseModel):
+class MusicResponse(BaseModel):
     display_name: str
     song_choice: str
 
 
-class RSVP(BaseModel):
+class RequestBase(BaseModel):
     code: str
+
+
+class RSVPRequest(RequestBase):
     status: int
 
 
-class SongChoice(BaseModel):
-    code: str
+class SongChoiceRequest(RequestBase):
     song_choice: str
 
 
-class DietaryRequirements(BaseModel):
-    code: str
-    dietary_requirements: str
+class DietaryRequirementsRequest(RequestBase):
+    requirements: str
 
 
-class Photo(BaseModel):
-    code: str
+class PhotoRequest(RequestBase):
     photos: list[UploadFile]
+
+
+class DatabaseRequest(RequestBase):
+    file: UploadFile
