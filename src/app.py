@@ -53,8 +53,8 @@ async def root():
     return {"status": "healthy!"}
 
 
-@app.get("/{code}")
-async def get_code(code: str, response_model=WeddingGuestGroup):
+@app.get("/{code}", response_model=WeddingGuestGroup)
+async def get_code(code: str):
     grp = await fetch_guest_group(code)
     return grp
 
@@ -187,8 +187,8 @@ async def upload_database(
 ) -> dict:
     await is_admin(code)
     try:
-        await engine.remove(WeddingGuestGroup)
         df = database_validation(pd.read_csv(database_data.file))
+        await engine.remove(WeddingGuestGroup)
         new_ids = []
         for index, row in df.iterrows():
             grp = WeddingGuestGroup(

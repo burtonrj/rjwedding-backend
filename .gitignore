@@ -261,3 +261,5 @@ terraform.tfstate.backup
 .gitlab-ci-local
 
 *.fasta
+
+init_database_admin.py
