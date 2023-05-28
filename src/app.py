@@ -7,6 +7,7 @@ import pandas as pd
 from botocore.exceptions import NoCredentialsError
 from decouple import config
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from motor.motor_asyncio import AsyncIOMotorClient
 from odmantic import AIOEngine
@@ -14,6 +15,7 @@ from odmantic import AIOEngine
 from .data import (
     DietaryRequirementsRequest,
     MusicResponse,
+    ParkingRequiredRequest,
     RSVPRequest,
     SongChoiceRequest,
     WeddingGuestGroup,
@@ -28,6 +30,16 @@ engine = AIOEngine(client=client, database=config("MONGO_DB_NAME", default="test
 templates_dir = Path(__file__).parent / "templates"
 
 app = FastAPI()
+
+origins = [config("FRONTEND_URL", default="http://localhost:5173")]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 async def fetch_guest_group(code: str) -> WeddingGuestGroup:
@@ -119,6 +131,16 @@ async def dietary_requirements(
 ) -> WeddingGuestGroup:
     grp = await fetch_guest_group(dietary_requirements_data.code)
     grp.dietary_requirements = dietary_requirements_data.requirements
+    await engine.save(grp)
+    return grp
+
+
+@app.post("/parking-required")
+async def parking_required(
+    dietary_requirements_data: ParkingRequiredRequest,
+) -> WeddingGuestGroup:
+    grp = await fetch_guest_group(dietary_requirements_data.code)
+    grp.parking_required = dietary_requirements_data.required
     await engine.save(grp)
     return grp
 

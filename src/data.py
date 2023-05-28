@@ -46,6 +46,10 @@ class DietaryRequirementsRequest(RequestBase):
     requirements: str
 
 
+class ParkingRequiredRequest(RequestBase):
+    required: bool
+
+
 class PhotoRequest(RequestBase):
     photos: list[UploadFile]
 
