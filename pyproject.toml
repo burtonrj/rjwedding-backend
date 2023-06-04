@@ -4,7 +4,6 @@ version = "0.1.0"
 description = ""
 authors = ["burtonrj <burtonrossj@gmail.com>"]
 readme = "README.md"
-packages = [{include = "rjwedding_backend"}]
 
 [tool.poetry.dependencies]
 python = "^3.11"

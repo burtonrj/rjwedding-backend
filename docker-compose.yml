@@ -1,0 +1,16 @@
+version: "3.9"
+services:
+  wedding-api:
+    image: weddingbackend:latest
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    container_name: weddingbackend
+    env_file:
+      - .env
+    network_mode: host
+    healthcheck:
+      test: wget http://localhost:8000/docs -O - || exit 1
+      interval: 5s
+      timeout: 10s
+      retries: 50
