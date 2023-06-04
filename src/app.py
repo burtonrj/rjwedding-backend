@@ -32,7 +32,13 @@ templates_dir = Path(__file__).parent / "templates"
 
 app = FastAPI()
 
-origins = [config("FRONTEND_URL", default="http://localhost:5173")]
+origins = [
+    config("FRONTEND_URL", default="http://localhost:5173"),
+    "https://rjwedding-frontend-nf9i6ojal-burtonrj.vercel.app",
+    "http://www.burtonwedding.info/",
+    "https://rjwedding-frontend-nf9i6ojal-burtonrj.vercel.app/",
+    "https://rjwedding-frontend.vercel.app",
+]
 
 app.add_middleware(
     CORSMiddleware,
