@@ -35,8 +35,9 @@ app = FastAPI()
 origins = [
     "http://localhost:5173",
     "https://rjwedding-frontend-nf9i6ojal-burtonrj.vercel.app",
-    "http://www.burtonwedding.info/",
-    "https://rjwedding-frontend-nf9i6ojal-burtonrj.vercel.app/",
+    "http://www.burtonwedding.info",
+    "https://www.burtonwedding.info",
+    "https://rjwedding-frontend-nf9i6ojal-burtonrj.vercel.app",
     "https://rjwedding-frontend.vercel.app",
 ]
 
