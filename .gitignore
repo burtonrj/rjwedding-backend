@@ -263,3 +263,4 @@ terraform.tfstate.backup
 *.fasta
 
 init_database_admin.py
+*.csv

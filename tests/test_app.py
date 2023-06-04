@@ -20,15 +20,17 @@ async def test_get_code(client: AsyncClient, db_manager):
     data.pop("id")
     assert data == {
         "display_name": "Test Group 1",
-        "count": 1,
-        "wedding_party_count": 0,
+        "party_count": 1,
+        "ceremony_count": 0,
+        "party_attendance": -1,
+        "ceremony_attendance": -1,
+        "plus_one": False,
         "address": None,
         "postcode": None,
         "email": None,
         "phone": None,
         "dietary_requirements": None,
         "song_choice": None,
-        "attendance": -1,
         "admin": False,
         "code": "test1",
         "parking_required": False,
@@ -37,7 +39,7 @@ async def test_get_code(client: AsyncClient, db_manager):
 
 @pytest.mark.anyio
 async def test_get_code_404(client: AsyncClient, db_manager):
-    response = await client.get("/test3")
+    response = await client.get("/test15")
     assert response.status_code == 404
 
 
@@ -59,21 +61,26 @@ async def test_get_parking_availability(client: AsyncClient, db_manager):
 
 @pytest.mark.anyio
 async def test_get_parking_availability_404(client: AsyncClient, db_manager):
-    response = await client.get("test3/parking_count")
+    response = await client.get("test15/parking_count")
     assert response.status_code == 404
 
 
 @pytest.mark.anyio
-async def test_rsvp(client: AsyncClient, db_manager):
+@pytest.mark.parametrize("event_type", ["party", "ceremony"])
+async def test_rsvp(client: AsyncClient, db_manager, event_type):
     response = await client.get("/test1")
     assert response.status_code == 200
-    assert response.json()["attendance"] == -1
-    response = await client.post("/rsvp", json={"code": "test1", "status": 1})
+    assert response.json()[f"{event_type}_attendance"] == -1
+    response = await client.post(
+        "/rsvp", json={"code": "test1", "status": 1, "event": event_type}
+    )
     assert response.status_code == 200
-    assert response.json()["attendance"] == 1
-    response = await client.post("/rsvp", json={"code": "test1", "status": 0})
+    assert response.json()[f"{event_type}_attendance"] == 1
+    response = await client.post(
+        "/rsvp", json={"code": "test1", "status": 0, "event": event_type}
+    )
     assert response.status_code == 200
-    assert response.json()["attendance"] == 0
+    assert response.json()[f"{event_type}_attendance"] == 0
 
 
 @pytest.mark.anyio
@@ -115,33 +122,33 @@ async def test_get_attendance(client: AsyncClient, db_manager):
     response = await client.get("/admin/attendance")
     assert response.status_code == 200
     assert response.json() == {
-        "attending_group_count": 2,
-        "attending_total_count": 4,
-        "attending_wedding_count": 4,
+        "party_count": 0 + 2 + 1 + 2,
+        "ceremony_count": 0 + 2 + 0 + 2,
     }
 
 
 @pytest.mark.anyio
-async def test_get_attendance_not_admin(client: AsyncClient, db_manager):
-    response = await client.get("/test1/attendance")
-    assert response.status_code == 403
+async def test_plus_one(client: AsyncClient, db_manager):
+    response = await client.post("/plus-one", json={"code": "test3", "status": 1})
+    assert response.status_code == 200
+    assert response.json()["plus_one"] is True
 
 
 @pytest.mark.anyio
 async def test_download_database(client: AsyncClient, db_manager):
-    response = await client.get("/admin/download_database")
+    response = await client.get("/admin/download-database")
     assert response.status_code == 200
     assert (
         response.headers["Content-Disposition"] == "attachment; filename=database.csv"
     )
     data = pd.read_csv(io.StringIO(response.text))
-    assert data.shape == (3, 14)
+    assert data.shape == (4, 16)
 
 
 @pytest.mark.anyio
 async def test_upload_database_403(client: AsyncClient, db_manager):
     response = await client.post(
-        "/upload_database",
+        "/upload-database",
         data={"code": "test1"},
         files={
             "database_data": bytes(
@@ -158,23 +165,21 @@ async def test_upload_database(client: AsyncClient, db_manager):
     new_data = pd.DataFrame(
         [
             {
-                "Name": "Test Group 3",
-                "Code": "test3",
-                "Guest count": 3,
-                "Wedding party": 0,
-                "Attendance": -1,
+                "display_name": "Test Group 3",
+                "code": "test3",
+                "party_count": 3,
+                "ceremony_count": 0,
             },
             {
-                "Name": "admin",
-                "Code": "admin",
-                "Guest count": 2,
-                "Wedding party": 2,
-                "Attendance": 1,
+                "display_name": "Admin",
+                "code": "admin",
+                "party_count": 2,
+                "ceremony_count": 2,
             },
         ]
     )
     response = await client.post(
-        "/upload_database",
+        "/upload-database",
         data={"code": "admin"},
         files={"database_data": bytes(new_data.to_csv(index=False), encoding="utf-8")},
     )
@@ -183,21 +188,20 @@ async def test_upload_database(client: AsyncClient, db_manager):
     response = await client.get("/test3")
     assert response.status_code == 200
     assert response.json()["display_name"] == "Test Group 3"
-    assert response.json()["count"] == 3
-    assert response.json()["wedding_party_count"] == 0
+    assert response.json()["party_count"] == 3
+    assert response.json()["ceremony_count"] == 0
     response = await client.get("/admin/attendance")
     assert response.status_code == 200
     assert response.json() == {
-        "attending_group_count": 1,
-        "attending_total_count": 2,
-        "attending_wedding_count": 2,
+        "ceremony_count": 0,
+        "party_count": 0,
     }
 
 
 @pytest.mark.anyio
 async def test_upload_database_invalid_columns(client: AsyncClient, db_manager):
     response = await client.post(
-        "/upload_database",
+        "/upload-database",
         data={"code": "admin"},
         files={
             "database_data": bytes(
@@ -213,23 +217,27 @@ async def test_upload_database_duplicate_names(client: AsyncClient, db_manager):
     new_data = pd.DataFrame(
         [
             {
-                "Name": "admin",
-                "Code": "test3",
-                "Guest count": 3,
-                "Wedding party": 0,
-                "Attendance": -1,
+                "display_name": "Test Group 3",
+                "code": "test3",
+                "party_count": 3,
+                "ceremony_count": 0,
             },
             {
-                "Name": "admin",
-                "Code": "admin",
-                "Guest count": 2,
-                "Wedding party": 2,
-                "Attendance": 1,
+                "display_name": "Test Group 3",
+                "code": "test3",
+                "party_count": 3,
+                "ceremony_count": 0,
+            },
+            {
+                "display_name": "Admin",
+                "code": "admin",
+                "party_count": 2,
+                "ceremony_count": 2,
             },
         ]
     )
     response = await client.post(
-        "/upload_database",
+        "/upload-database",
         data={"code": "admin"},
         files={"database_data": bytes(new_data.to_csv(index=False), encoding="utf-8")},
     )
@@ -241,23 +249,27 @@ async def test_upload_database_duplicate_codes(client: AsyncClient, db_manager):
     new_data = pd.DataFrame(
         [
             {
-                "Name": "test3",
-                "Code": "admin",
-                "Guest count": 3,
-                "Wedding party": 0,
-                "Attendance": -1,
+                "display_name": "Test Group 2",
+                "code": "test3",
+                "party_count": 3,
+                "ceremony_count": 0,
             },
             {
-                "Name": "admin",
-                "Code": "admin",
-                "Guest count": 2,
-                "Wedding party": 2,
-                "Attendance": 1,
+                "display_name": "Test Group 3",
+                "code": "test3",
+                "party_count": 3,
+                "ceremony_count": 0,
+            },
+            {
+                "display_name": "Admin",
+                "code": "admin",
+                "party_count": 2,
+                "ceremony_count": 2,
             },
         ]
     )
     response = await client.post(
-        "/upload_database",
+        "/upload-database",
         data={"code": "admin"},
         files={"database_data": bytes(new_data.to_csv(index=False), encoding="utf-8")},
     )
@@ -269,16 +281,15 @@ async def test_upload_database_no_admin(client: AsyncClient, db_manager):
     new_data = pd.DataFrame(
         [
             {
-                "Name": "test3",
-                "Code": "admin",
-                "Guest count": 3,
-                "Wedding party": 0,
-                "Attendance": -1,
+                "display_name": "Test Group 2",
+                "code": "test3",
+                "party_count": 3,
+                "ceremony_count": 0,
             }
         ]
     )
     response = await client.post(
-        "/upload_database",
+        "/upload-database",
         data={"code": "admin"},
         files={"database_data": bytes(new_data.to_csv(index=False), encoding="utf-8")},
     )
@@ -290,23 +301,21 @@ async def test_upload_database_null_values(client: AsyncClient, db_manager):
     new_data = pd.DataFrame(
         [
             {
-                "Name": "test3",
-                "Code": "admin",
-                "Guest count": 3,
-                "Wedding party": 0,
-                "Attendance": None,
+                "display_name": "Test Group 2",
+                "code": "test3",
+                "party_count": 3,
+                "ceremony_count": None,
             },
             {
-                "Name": "admin",
-                "Code": "admin",
-                "Guest count": None,
-                "Wedding party": 2,
-                "Attendance": 1,
+                "display_name": "Admin",
+                "code": "admin",
+                "party_count": None,
+                "ceremony_count": 2,
             },
         ]
     )
     response = await client.post(
-        "/upload_database",
+        "/upload-database",
         data={"code": "admin"},
         files={"database_data": bytes(new_data.to_csv(index=False), encoding="utf-8")},
     )

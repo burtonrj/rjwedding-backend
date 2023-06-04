@@ -53,27 +53,38 @@ def db_manager():
     clear_db(sync_engine)
     # Add 2 test WeddingGuestGroup documents
     test_grp1 = WeddingGuestGroup(
-        display_name="Test Group 1", count=1, wedding_party_count=0, code="test1"
+        display_name="Test Group 1", party_count=1, ceremony_count=0, code="test1"
     )
     test_grp2 = WeddingGuestGroup(
         display_name="Test Group 2",
-        count=2,
-        wedding_party_count=2,
+        party_count=2,
+        ceremony_count=2,
         code="test2",
         parking_required=True,
-        attendance=1,
+        party_attendance=1,
+        ceremony_attendance=1,
         song_choice="Test Song",
+    )
+    test_grp3 = WeddingGuestGroup(
+        display_name="Test Group 2",
+        party_count=2,
+        ceremony_count=0,
+        party_attendance=1,
+        plus_one=False,
+        code="test3",
     )
     admin = WeddingGuestGroup(
         display_name="Admin Group",
-        count=2,
-        wedding_party_count=2,
+        party_count=2,
+        ceremony_count=2,
         code="admin",
-        attendance=1,
+        party_attendance=1,
+        ceremony_attendance=1,
         admin=True,
     )
     sync_engine.save(test_grp1)
     sync_engine.save(test_grp2)
+    sync_engine.save(test_grp3)
     sync_engine.save(admin)
     yield
     clear_db(sync_engine)

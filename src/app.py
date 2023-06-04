@@ -16,6 +16,7 @@ from .data import (
     DietaryRequirementsRequest,
     MusicResponse,
     ParkingRequiredRequest,
+    PlusOneRequest,
     RSVPRequest,
     SongChoiceRequest,
     WeddingGuestGroup,
@@ -94,25 +95,37 @@ async def get_parking_count(code: str) -> dict[str, int]:
     return {"parking_count": parking_count}
 
 
-@app.get("/{code}/attendance")
-async def get_attendance(code: str) -> dict[str, int]:
-    await is_admin(code)
-    grp_attending = [
-        grp for grp in await engine.find(WeddingGuestGroup) if grp.attendance == 1
-    ]
+@app.get("/admin/attendance")
+async def get_attendance() -> dict[str, int]:
+    party_count = sum([grp.party_total for grp in await engine.find(WeddingGuestGroup)])
+    ceremony_count = sum(
+        [grp.ceremony_total for grp in await engine.find(WeddingGuestGroup)]
+    )
     return {
-        "attending_group_count": len(grp_attending),
-        "attending_total_count": sum([grp.count for grp in grp_attending]),
-        "attending_wedding_count": sum(
-            [grp.wedding_party_count for grp in grp_attending]
-        ),
+        "party_count": party_count,
+        "ceremony_count": ceremony_count,
     }
 
 
 @app.post("/rsvp")
 async def rsvp(rsvp_data: RSVPRequest) -> WeddingGuestGroup:
     grp = await fetch_guest_group(rsvp_data.code)
-    grp.attendance = rsvp_data.status
+    if rsvp_data.event == "party":
+        grp.party_attendance = rsvp_data.status
+    elif rsvp_data.event == "ceremony":
+        grp.ceremony_attendance = rsvp_data.status
+    else:
+        raise HTTPException(
+            status_code=400, detail="Invalid event. Must be party or ceremony."
+        )
+    await engine.save(grp)
+    return grp
+
+
+@app.post("/plus-one")
+async def plus_one(plus_one_data: PlusOneRequest) -> WeddingGuestGroup:
+    grp = await fetch_guest_group(plus_one_data.code)
+    grp.plus_one = plus_one_data.status
     await engine.save(grp)
     return grp
 
@@ -162,7 +175,7 @@ async def photo(code: str = Form(...), photos: list[UploadFile] = File(...)) -> 
     return {"message": "Photos uploaded!"}
 
 
-@app.get("/{code}/download_database")
+@app.get("/{code}/download-database")
 async def download_database(code: str) -> StreamingResponse:
     await is_admin(code)
     data = pd.concat(
@@ -177,33 +190,33 @@ async def download_database(code: str) -> StreamingResponse:
 
 
 def database_validation(data: pd.DataFrame) -> pd.DataFrame:
-    for col in ["Name", "Guest count", "Wedding party", "Code", "Attendance"]:
+    for col in ["display_name", "party_count", "ceremony_count", "code"]:
         if col not in data.columns:
             raise HTTPException(
                 status_code=400,
                 detail="Invalid database format. Must contain the columns: Name, Guest count, Wedding party, and Code",
             )
-    if data["Name"].nunique() != data.shape[0]:
+    if data["display_name"].nunique() != data.shape[0]:
         raise HTTPException(
             status_code=400, detail="Invalid database. Cannot contain duplicate names."
         )
-    if data["Code"].nunique() != data.shape[0]:
+    if data["code"].nunique() != data.shape[0]:
         raise HTTPException(
             status_code=400, detail="Invalid database. Cannot contain duplicate codes."
         )
-    if "admin" not in data["Name"].values:
+    if "Admin" not in data["display_name"].values:
         raise HTTPException(
-            status_code=400, detail="Invalid database. Must contain an admin."
+            status_code=400, detail="Invalid database. Must contain an 'Admin'."
         )
     if data.isnull().any().sum() > 0:
         raise HTTPException(
             status_code=400, detail="Invalid database. Cannot contain null values."
         )
-    data["Code"] = data["Code"].apply(lambda x: str(x).replace(" ", ""))
+    data["code"] = data["code"].apply(lambda x: str(x).replace(" ", ""))
     return data
 
 
-@app.post("/upload_database")
+@app.post("/upload-database")
 async def upload_database(
     code: str = Form(...), database_data: UploadFile = File(...)
 ) -> dict:
@@ -214,12 +227,11 @@ async def upload_database(
         new_ids = []
         for index, row in df.iterrows():
             grp = WeddingGuestGroup(
-                display_name=str(row["Name"]),
-                count=int(row["Guest count"]),
-                wedding_party_count=int(row["Wedding party"]),
-                code=str(row["Code"].replace(" ", "")),
-                admin=str(row["Name"]) == "admin",
-                attendance=int(row["Attendance"]),
+                display_name=str(row["display_name"]),
+                party_count=int(row["party_count"]),
+                ceremony_count=int(row["ceremony_count"]),
+                code=str(row["code"].replace(" ", "")),
+                admin=str(row["display_name"]) == "Admin",
             )
             saved_grp = await engine.save(grp)
             new_ids.append(saved_grp.id)
