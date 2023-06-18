@@ -30,20 +30,33 @@ class WeddingGuestGroup(Model):
 
     @property
     def party_total(self) -> int:
-        count = self.party_count if self.party_attendance == 1 else 0
-        if "&" in self.display_name or self.party_count == 1:
-            if not self.plus_one:
-                return count - 1
-        return count
+        if self.party_attendance < 1:
+            return 0
+        if "&" not in self.display_name:
+            if self.plus_one:
+                return 2
+            return 1
+        return self.party_count
 
     @property
     def ceremony_total(self) -> int:
-        count = self.ceremony_count if self.ceremony_attendance == 1 else 0
-        if "&" in self.display_name or self.ceremony_count == 1:
-            return count
-        if self.plus_one:
-            return count + 1
-        return count
+        if self.ceremony_attendance < 1:
+            return 0
+        if "&" not in self.display_name:
+            if self.plus_one:
+                return 2
+            return 1
+        return self.ceremony_count
+
+    @property
+    def responded(self) -> int:
+        if self.ceremony_count > 0:
+            if self.ceremony_attendance == -1 and self.party_attendance == -1:
+                return 0
+            return 1
+        if self.party_attendance == -1:
+            return 0
+        return 1
 
 
 class MusicResponse(BaseModel):

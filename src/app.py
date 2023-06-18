@@ -1,5 +1,6 @@
 import io
 import logging
+from datetime import date
 from pathlib import Path
 
 import boto3
@@ -108,9 +109,15 @@ async def get_attendance() -> dict[str, int]:
     ceremony_count = sum(
         [grp.ceremony_total for grp in await engine.find(WeddingGuestGroup)]
     )
+    response_count = sum(
+        [grp.responded for grp in await engine.find(WeddingGuestGroup)]
+    )
+    total_grps = await engine.count(WeddingGuestGroup)
     return {
         "party_count": party_count,
         "ceremony_count": ceremony_count,
+        "response_count": response_count,
+        "total_groups": total_grps,
     }
 
 
@@ -192,7 +199,9 @@ async def download_database(code: str) -> StreamingResponse:
     stream = io.StringIO()
     data.to_csv(stream, index=False)
     response = StreamingResponse(iter([stream.getvalue()]), media_type="text/csv")
-    response.headers["Content-Disposition"] = "attachment; filename=database.csv"
+    response.headers[
+        "Content-Disposition"
+    ] = f"attachment; filename=BurtonWeddingDatabase_{date.today()}.csv"
     return response
 
 
